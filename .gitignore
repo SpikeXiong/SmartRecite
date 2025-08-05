@@ -1,0 +1,7 @@
+*.wav
+env/dev_env_312/pyvenv.cfg
+/env
+/server/textCodes/faiss/models
+/server/textCodes/faiss/test_chinese_kb
+/server/__pycache__
+/server/textCodes/faiss/__pycache__

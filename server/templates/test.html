@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时音频波形图 - 调试版</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        canvas {
+            border: 2px solid #333;
+            border-radius: 5px;
+            display: block;
+            margin: 20px auto;
+            background: #000;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>实时音频波形图 - 调试版</h1>
+        
+        <div class="controls">
+            <button id="startBtn">开始录音</button>
+            <button id="stopBtn" disabled>停止录音</button>
+        </div>
+        
+        <div id="status" class="status warning">点击"开始录音"按钮开始</div>
+        
+        <canvas id="waveformCanvas" width="800" height="300"></canvas>
+        
+        <div class="debug-info">
+            <h3>调试信息：</h3>
+            <div id="debugInfo">等待初始化...</div>
+        </div>
+    </div>
+
+    <script>
+        class AudioVisualizer {
+            constructor() {
+                this.canvas = document.getElementById('waveformCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.statusDiv = document.getElementById('status');
+                this.debugDiv = document.getElementById('debugInfo');
+                
+                this.audioContext = null;
+                this.analyser = null;
+                this.microphone = null;
+                this.dataArray = null;
+                this.animationId = null;
+                this.isRecording = false;
+                
+                this.init();
+            }
+            
+            init() {
+                this.log('初始化音频可视化器...');
+                
+                // 检查浏览器支持
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    this.showError('您的浏览器不支持getUserMedia API');
+                    return;
+                }
+                
+                if (!window.AudioContext && !window.webkitAudioContext) {
+                    this.showError('您的浏览器不支持Web Audio API');
+                    return;
+                }
+                
+                this.log('浏览器支持检查通过');
+                
+                // 绑定事件
+                this.startBtn.addEventListener('click', () => this.startRecording());
+                this.stopBtn.addEventListener('click', () => this.stopRecording());
+                
+                // 初始化Canvas
+                this.setupCanvas();
+                this.log('初始化完成，准备就绪');
+            }
+            
+            setupCanvas() {
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.strokeStyle = '#00ff00';
+                this.ctx.lineWidth = 2;
+                
+                // 绘制网格
+                this.ctx.strokeStyle = '#333';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                for (let i = 0; i < this.canvas.width; i += 50) {
+                    this.ctx.moveTo(i, 0);
+                    this.ctx.lineTo(i, this.canvas.height);
+                }
+                for (let i = 0; i < this.canvas.height; i += 50) {
+                    this.ctx.moveTo(0, i);
+                    this.ctx.lineTo(this.canvas.width, i);
+                }
+                this.ctx.stroke();
+                
+                // 绘制中心线
+                this.ctx.strokeStyle = '#666';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, this.canvas.height / 2);
+                this.ctx.lineTo(this.canvas.width, this.canvas.height / 2);
+                this.ctx.stroke();
+            }
+            
+            async startRecording() {
+                try {
+                    this.log('请求麦克风权限...');
+                    this.showStatus('请求麦克风权限...', 'warning');
+                    
+                    // 创建音频上下文
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.audioContext = new AudioContext();
+                    this.log(`音频上下文创建成功，采样率: ${this.audioContext.sampleRate}Hz`);
+                    
+                    // 获取麦克风流
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: false,
+                            noiseSuppression: false,
+                            autoGainControl: false
+                        } 
+                    });
+                    
+                    this.log('麦克风权限获取成功');
+                    this.showStatus('麦克风连接成功，正在分析音频...', 'success');
+                    
+                    // 创建音频源和分析器
+                    this.microphone = this.audioContext.createMediaStreamSource(stream);
+                    this.analyser = this.audioContext.createAnalyser();
+                    
+                    // 配置分析器
+                    this.analyser.fftSize = 2048;
+                    this.analyser.smoothingTimeConstant = 0.3;
+                    
+                    const bufferLength = this.analyser.frequencyBinCount;
+                    this.dataArray = new Uint8Array(bufferLength);
+                    
+                    this.log(`分析器配置完成，FFT大小: ${this.analyser.fftSize}, 缓冲区长度: ${bufferLength}`);
+                    
+                    // 连接音频节点
+                    this.microphone.connect(this.analyser);
+                    
+                    // 开始可视化
+                    this.isRecording = true;
+                    this.startBtn.disabled = true;
+                    this.stopBtn.disabled = false;
+                    
+                    this.draw();
+                    this.log('开始绘制波形图');
+                    
+                } catch (error) {
+                    this.log(`错误: ${error.message}`);
+                    this.showError(`无法访问麦克风: ${error.message}`);
+                }
+            }
+            
+            stopRecording() {
+                this.log('停止录音...');
+                
+                this.isRecording = false;
+                
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+                
+                if (this.microphone) {
+                    this.microphone.disconnect();
+                    this.microphone = null;
+                }
+                
+                if (this.audioContext) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                }
+                
+                this.startBtn.disabled = false;
+                this.stopBtn.disabled = true;
+                
+                this.showStatus('录音已停止', 'warning');
+                this.setupCanvas();
+                this.log('录音停止，资源已清理');
+            }
+            
+            draw() {
+                if (!this.isRecording) return;
+                
+                // 获取时域数据
+                this.analyser.getByteTimeDomainData(this.dataArray);
+                
+                // 清除画布
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // 绘制网格
+                this.ctx.strokeStyle = '#333';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                for (let i = 0; i < this.canvas.width; i += 50) {
+                    this.ctx.moveTo(i, 0);
+                    this.ctx.lineTo(i, this.canvas.height);
+                }
+                for (let i = 0; i < this.canvas.height; i += 50) {
+                    this.ctx.moveTo(0, i);
+                    this.ctx.lineTo(this.canvas.width, i);
+                }
+                this.ctx.stroke();
+                
+                // 绘制中心线
+                this.ctx.strokeStyle = '#666';
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, this.canvas.height / 2);
+                this.ctx.lineTo(this.canvas.width, this.canvas.height / 2);
+                this.ctx.stroke();
+                
+                // 绘制波形
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeStyle = '#00ff00';
+                this.ctx.beginPath();
+                
+                const sliceWidth = this.canvas.width / this.dataArray.length;
+                let x = 0;
+                
+                for (let i = 0; i < this.dataArray.length; i++) {
+                    const v = this.dataArray[i] / 128.0;
+                    const y = v * this.canvas.height / 2;
+                    
+                    if (i === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                    
+                    x += sliceWidth;
+                }
+                
+                this.ctx.stroke();
+                
+                // 计算音量级别
+                let sum = 0;
+                for (let i = 0; i < this.dataArray.length; i++) {
+                    const sample = (this.dataArray[i] - 128) / 128;
+                    sum += sample * sample;
+                }
+                const rms = Math.sqrt(sum / this.dataArray.length);
+                const volume = Math.round(rms * 100);
+                
+                // 更新调试信息
+                this.updateDebugInfo(volume);
+                
+                this.animationId = requestAnimationFrame(() => this.draw());
+            }
+            
+            updateDebugInfo(volume) {
+                const info = `
+状态: ${this.isRecording ? '正在录音' : '已停止'}
+音频上下文状态: ${this.audioContext ? this.audioContext.state : '未创建'}
+采样率: ${this.audioContext ? this.audioContext.sampleRate + 'Hz' : '未知'}
+FFT大小: ${this.analyser ? this.analyser.fftSize : '未设置'}
+当前音量: ${volume}%
+数据数组长度: ${this.dataArray ? this.dataArray.length : 0}
+动画帧ID: ${this.animationId || '无'}
+                `.trim();
+                
+                this.debugDiv.innerHTML = info.replace(/\n/g, '<br>');
+            }
+            
+            showStatus(message, type) {
+                this.statusDiv.textContent = message;
+                this.statusDiv.className = `status ${type}`;
+            }
+            
+            showError(message) {
+                this.showStatus(message, 'error');
+            }
+            
+            log(message) {
+                console.log(`[AudioVisualizer] ${message}`);
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `[${timestamp}] ${message}`;
+                
+                // 添加到调试信息
+                const currentInfo = this.debugDiv.innerHTML;
+                this.debugDiv.innerHTML = logEntry + '<br>' + currentInfo;
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            new AudioVisualizer();
+        });
+    </script>
+</body>
+</html>
