@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识库管理</title>
+    <!-- 添加Socket.IO客户端库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .stats-container {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        
+        .stats-item {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .back-btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            margin: 0 auto;
+            text-align: center;
+            text-decoration: none;
+            width: 150px;
+        }
+        
+        .back-btn:hover {
+            background: #0069d9;
+            transform: translateY(-2px);
+        }
+        
+        /* 连接状态指示器 */
+        .connection-status {
+            text-align: center;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* PDF上传区域 */
+        .upload-section {
+            margin-top: 20px;
+        }
+        
+        .pdf-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-button {
+            display: block;
+            background: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .file-input-button:hover {
+            background: #0069d9;
+        }
+        
+        .file-name {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            grid-column: span 2;
+            margin-top: 10px;
+        }
+        
+        .upload-btn:hover {
+            background: #0069d9;
+            transform: translateY(-2px);
+        }
+        
+        .upload-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .upload-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .upload-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* 文档列表 */
+        .document-list {
+            margin-top: 20px;
+        }
+        
+        .document-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid #007bff;
+        }
+        
+        .document-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .document-meta {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* 响应式布局 */
+        @media (max-width: 768px) {
+            .pdf-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .upload-btn {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 知识库管理</h1>
+        
+        <div id="connectionStatus" class="connection-status">正在连接服务器...</div>
+        
+        <div class="section">
+            <div class="section-title">知识库统计信息</div>
+            <div id="knowledgeStats" class="stats-container">
+                <div class="stats-item">正在加载统计信息...</div>
+            </div>
+        </div>
+        
+        <div class="section upload-section">
+            <div class="section-title">上传PDF文档</div>
+            <p>将PDF文档上传到知识库中，系统将自动提取文本并建立索引。</p>
+            
+            <form id="pdfUploadForm" class="pdf-form">
+                <div class="form-group">
+                    <label for="pdfFile">选择PDF文件</label>
+                    <div class="file-input-wrapper">
+                        <div class="file-input-button">选择文件</div>
+                        <input type="file" id="pdfFile" name="file" accept=".pdf" required>
+                    </div>
+                    <div id="fileName" class="file-name">未选择文件</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfPassword">PDF密码（如有）</label>
+                    <input type="password" id="pdfPassword" name="password" placeholder="留空表示无密码">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfTitle">文档标题</label>
+                    <input type="text" id="pdfTitle" name="title" placeholder="输入文档标题">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfAuthor">作者</label>
+                    <input type="text" id="pdfAuthor" name="author" placeholder="输入作者名称">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfCategory">分类</label>
+                    <input type="text" id="pdfCategory" name="category" placeholder="输入文档分类">
+                </div>
+                
+                <button type="submit" class="upload-btn">上传并导入知识库</button>
+            </form>
+            
+            <div id="uploadStatus" class="upload-status"></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">已导入文档</div>
+            <div id="documentList" class="document-list">
+                <p>正在加载文档列表...</p>
+            </div>
+        </div>
+        
+        <a href="/" class="back-btn">返回主页</a>
+    </div>
+    
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 连接状态显示
+            const connectionStatus = document.getElementById('connectionStatus');
+            connectionStatus.textContent = '正在连接服务器...';
+            
+            // 获取知识库统计信息
+            fetchKnowledgeStats();
+            
+            // 文件选择事件
+            const fileInput = document.getElementById('pdfFile');
+            const fileNameDisplay = document.getElementById('fileName');
+            
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files.length > 0) {
+                    fileNameDisplay.textContent = this.files[0].name;
+                } else {
+                    fileNameDisplay.textContent = '未选择文件';
+                }
+            });
+            
+            // 表单提交处理
+            const uploadForm = document.getElementById('pdfUploadForm');
+            const uploadStatus = document.getElementById('uploadStatus');
+            
+            uploadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // 显示上传状态
+                uploadStatus.textContent = '正在上传文件，请稍候...';
+                uploadStatus.className = 'upload-status';
+                uploadStatus.style.display = 'block';
+                
+                // 创建FormData对象
+                const formData = new FormData();
+                
+                // 添加文件
+                const fileInput = document.getElementById('pdfFile');
+                if (fileInput.files.length > 0) {
+                    formData.append('file', fileInput.files[0]);
+                } else {
+                    uploadStatus.textContent = '请选择要上传的PDF文件';
+                    uploadStatus.className = 'upload-status error';
+                    return;
+                }
+                
+                // 添加其他表单字段
+                const password = document.getElementById('pdfPassword').value;
+                const title = document.getElementById('pdfTitle').value;
+                const author = document.getElementById('pdfAuthor').value;
+                const category = document.getElementById('pdfCategory').value;
+                
+                if (password) formData.append('password', password);
+                if (title) formData.append('title', title);
+                if (author) formData.append('author', author);
+                if (category) formData.append('category', category);
+                
+                // 发送上传请求
+                fetch('/api/knowledge/upload_pdf', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('网络响应不正常');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        uploadStatus.textContent = data.message;
+                        uploadStatus.className = 'upload-status success';
+                        
+                        // 重新获取知识库统计信息
+                        fetchKnowledgeStats();
+                        
+                        // 重置表单
+                        uploadForm.reset();
+                        fileNameDisplay.textContent = '未选择文件';
+                    } else {
+                        uploadStatus.textContent = '上传失败: ' + data.message;
+                        uploadStatus.className = 'upload-status error';
+                    }
+                })
+                .catch(error => {
+                    console.error('上传错误:', error);
+                    uploadStatus.textContent = '上传过程中发生错误: ' + error.message;
+                    uploadStatus.className = 'upload-status error';
+                });
+            });
+            
+            // 更新连接状态
+            connectionStatus.textContent = '已连接到服务器';
+            connectionStatus.className = 'connection-status connected';
+        });
+        
+        // 获取知识库统计信息
+        function fetchKnowledgeStats() {
+            const statsContainer = document.getElementById('knowledgeStats');
+            statsContainer.innerHTML = '<div class="stats-item">正在加载统计信息...</div>';
+            
+            fetch('/api/knowledge/knowledge_stats')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('网络响应不正常');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        const stats = data.stats;
+                        
+                        let statsHTML = '';
+                        statsHTML += '<div class="stats-item"><strong>文档总数:</strong> ' + (stats.total_documents || 0) + '</div>';
+                        statsHTML += '<div class="stats-item"><strong>文本块总数:</strong> ' + (stats.total_chunks || 0) + '</div>';
+                        statsHTML += '<div class="stats-item"><strong>知识库大小:</strong> ' + formatBytes(stats.index_size || 0) + '</div>';
+                        statsHTML += '<div class="stats-item"><strong>最后更新时间:</strong> ' + (stats.last_updated || '未知') + '</div>';
+                        
+                        if (stats.categories && stats.categories.length > 0) {
+                            statsHTML += '<div class="stats-item"><strong>文档分类:</strong> ' + stats.categories.join(', ') + '</div>';
+                        } else {
+                            statsHTML += '<div class="stats-item"><strong>文档分类:</strong> 无分类</div>';
+                        }
+                        
+                        statsContainer.innerHTML = statsHTML;
+                        
+                        // 更新文档列表
+                        updateDocumentList(stats.documents || []);
+                    } else {
+                        statsContainer.innerHTML = '<div class="stats-item">获取统计信息失败: ' + (data.message || '未知错误') + '</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取知识库统计失败:', error);
+                    statsContainer.innerHTML = '<div class="stats-item">获取统计信息失败: ' + error.message + '</div>';
+                });
+        }
+        
+        // 更新文档列表
+        function updateDocumentList(documents) {
+            const documentList = document.getElementById('documentList');
+            
+            if (!documents || documents.length === 0) {
+                documentList.innerHTML = '<p>暂无导入的文档</p>';
+                return;
+            }
+            
+            let html = '';
+            documents.forEach(doc => {
+                html += '<div class="document-item">';
+                html += '<div class="document-title">' + (doc.title || '未命名文档') + '</div>';
+                html += '<div class="document-meta">';
+                
+                if (doc.author) {
+                    html += '<span>作者: ' + doc.author + '</span> | ';
+                }
+                
+                if (doc.category) {
+                    html += '<span>分类: ' + doc.category + '</span> | ';
+                }
+                
+                html += '<span>文本块数量: ' + (doc.chunk_count || 0) + '</span>';
+                html += '</div>';
+                html += '</div>';
+            });
+            
+            documentList.innerHTML = html;
+        }
+        
+        // 格式化字节大小
+        function formatBytes(bytes, decimals) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const dm = decimals || 2;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>

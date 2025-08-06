@@ -1,23 +1,50 @@
 import chinese_embedding
 import faiss_tools
 
-if __name__ == "__main__":
+# -*- coding: utf-8 -*-
+
+# 知识库存储路径
+storage_path: str = "./test_chinese_kb"
+
+def init_chinese_embedding():
+    """
+    初始化中文嵌入模型
+    """
+    # 获取推荐的中文嵌入模型
     embedding_name = chinese_embedding.get_recommended_model("lightweight")
     
+    # 创建中文嵌入函数
     embedding_func = chinese_embedding.create_chinese_embedding_function(
-        model_name = embedding_name,
+        model_name=embedding_name,
         device="cpu",
         max_seq_length=512)
     
-    storage_path: str = "./test_chinese_kb"
+    print(f"中文嵌入模型: {embedding_name}, 维度: {embedding_func.dimension}")
+    
+    return embedding_func
 
-    #创建知识库
+def init_KnowledgeBase():
+    """
+    初始化知识库
+    """
+    # 初始化中文嵌入模型
+    embedding_func = init_chinese_embedding()
+
+    # 创建/加载知识库
     kb = faiss_tools.PersistentFAISSKnowledgeBase(embedding_func.dimension, "IndexFlatL2", storage_path, embedding_func)
 
-    print(f"创建中文知识库成功:")
-    print(f"模型: {embedding_name}")
-    print(f"维度: {embedding_func.dimension}")
-    print(f"存储路径: {storage_path}")
+    print(f"创建/加载中文知识库成功:")
+    print(f"知识库路径: {storage_path}")
+
+    return kb
+
+def test1():
+    """
+    测试中文知识库的创建和查询
+    """
+    print("开始测试中文知识库...")
+    #创建/加载知识库
+    kb = init_KnowledgeBase()
 
     # 添加中文文档
     chinese_texts = [
@@ -59,3 +86,17 @@ if __name__ == "__main__":
     print(f"\n知识库统计:")
     for key, value in stats.items():
         print(f"  {key}: {value}")
+    print("\n测试完成")
+
+def test2():
+    # 初始化知识库
+    kb = init_KnowledgeBase()
+    result = kb.adaptive_search_knowledge("人工智能", 50, debug=True)
+    print("自适应检索结果:")
+    for idx, text in enumerate(result, 1):  
+        print(f"{idx}. {text}")
+    return kb
+# 运行测试
+if __name__ == "__main__":
+   # test1()
+   test2()

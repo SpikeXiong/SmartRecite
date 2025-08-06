@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试知识点总结</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+            resize: none;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f1f1f1;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>测试知识点总结</h1>
+    <textarea id="inputText" placeholder="请输入需要总结的文本"></textarea>
+    <button id="summarizeBtn">总结知识点</button>
+    <div id="result"></div>
+
+    <script>
+        const summarizeBtn = document.getElementById('summarizeBtn');
+        const inputText = document.getElementById('inputText');
+        const resultDiv = document.getElementById('result');
+
+        summarizeBtn.addEventListener('click', () => {
+            const text = inputText.value.trim();
+            if (!text) {
+                alert('请输入文本');
+                return;
+            }
+
+            // 发送请求到后端
+            fetch('/api/knowledge/summarize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <strong>总结:</strong> ${data.summary}<br>
+
+                    `;
+                } else {
+                    resultDiv.textContent = `错误: ${data.message}`;
+                }
+            })
+            .catch(error => {
+                console.error('请求失败:', error);
+                resultDiv.textContent = '请求失败，请检查网络连接';
+            });
+        });
+    </script>
+</body>
+</html>

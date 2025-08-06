@@ -1,0 +1,23 @@
+
+flask==2.2.3
+flask-socketio==5.3.3
+python-socketio==5.8.0
+python-engineio==4.4.1
+pyaudio==0.2.13
+numpy==1.24.3
+funasr
+
+
+faiss-cpu==1.7.4
+sentence-transformers
+text2vec==1.2.0
+scikit-learn==1.2.2
+torch==2.1.0
+transformers==4.30.2
+huggingface_hub==0.16.4
+
+requests==2.28.2
+tqdm==4.65.0
+python-dotenv==1.0.0
+loguru==0.7.0
+pytorch >= 2.1

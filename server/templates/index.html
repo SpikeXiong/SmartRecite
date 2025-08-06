@@ -215,6 +215,142 @@
             100% { opacity: 1; }
         }
         
+        /* PDF导入相关样式 */
+        .pdf-import-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .pdf-import-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .pdf-import-title i {
+            margin-right: 10px;
+            font-size: 24px;
+            color: #007bff;
+        }
+        
+        .pdf-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-button {
+            display: block;
+            background: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .file-input-button:hover {
+            background: #0069d9;
+        }
+        
+        .file-name {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .import-btn {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            grid-column: span 2;
+        }
+        
+        .import-btn:hover {
+            background: #0069d9;
+            transform: translateY(-2px);
+        }
+        
+        .import-status {
+            grid-column: span 2;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            text-align: center;
+            display: none;
+        }
+        
+        .import-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .import-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .knowledge-stats {
+            margin-top: 15px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
         /* 响应式设计 */
         @media (max-width: 768px) {
             .content-grid {
@@ -224,6 +360,14 @@
             #waveformCanvas {
                 width: 100%;
                 height: 200px;
+            }
+            
+            .pdf-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .import-btn, .import-status {
+                grid-column: span 1;
             }
         }
     </style>
@@ -235,13 +379,64 @@
         <div class="controls">
             <button id="startBtn" class="start-btn">开始录音</button>
             <button id="stopBtn" class="stop-btn" disabled>停止录音</button>
+            <button id="knowledgePageBtn" style="background: #007bff; color: white;">知识库管理</button>
         </div>
-        
+        <!-- 测试知识点总结 -->
+        <div class="controls">
+            <button id="testSummarizerBtn" style="background: #007bff; color: white;">测试知识点总结</button>
+        </div>
+
         <div id="status" class="status">等待连接...</div>
         
         <div id="recordingIndicator" class="recording-indicator">
             <span class="recording-dot"></span>
             <span style="margin-left: 10px;">正在录音中...</span>
+        </div>
+        
+        <!-- PDF导入区域 -->
+        <div class="pdf-import-container">
+            <div class="pdf-import-title">
+                <i>📚</i> PDF导入知识库
+            </div>
+            
+            <form id="pdfImportForm" class="pdf-form">
+                <div class="form-group">
+                    <label for="pdfFile">选择PDF文件</label>
+                    <div class="file-input-wrapper">
+                        <div class="file-input-button">选择文件</div>
+                        <input type="file" id="pdfFile" accept=".pdf" required>
+                    </div>
+                    <div id="fileName" class="file-name">未选择文件</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfPassword">PDF密码（如有）</label>
+                    <input type="password" id="pdfPassword" placeholder="留空表示无密码">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfTitle">文档标题</label>
+                    <input type="text" id="pdfTitle" placeholder="输入文档标题">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfAuthor">作者</label>
+                    <input type="text" id="pdfAuthor" placeholder="输入作者名称">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfCategory">分类</label>
+                    <input type="text" id="pdfCategory" placeholder="输入文档分类">
+                </div>
+                
+                <button type="submit" class="import-btn">导入知识库</button>
+                
+                <div id="importStatus" class="import-status"></div>
+            </form>
+            
+            <div id="knowledgeStats" class="knowledge-stats">
+                <strong>知识库统计：</strong> 正在加载...
+            </div>
         </div>
         
         <!-- 音频可视化区域 -->
@@ -277,6 +472,11 @@
                 <div id="results" class="results">
                     <p style="text-align: center; color: #666;">暂无识别结果</p>
                 </div>
+                <!-- LLM校对结果区域 -->
+                <div class="results-section" style="margin-top:20px;">
+                    <h3>🤖 LLM校对结果</h3>
+                    <textarea id="llmResultBox" readonly style="width:100%;height:120px;font-size:16px;padding:10px;border-radius:8px;border:1px solid #aaa;resize:vertical;background:#f4f8fb;"></textarea>
+                </div>
             </div>
             
             <!-- 频谱分析区域 -->
@@ -308,6 +508,14 @@
         const status = document.getElementById('status');
         const results = document.getElementById('results');
         const recordingIndicator = document.getElementById('recordingIndicator');
+        const knowledgePageBtn = document.getElementById('knowledgePageBtn');
+        
+        // PDF导入相关元素
+        const pdfImportForm = document.getElementById('pdfImportForm');
+        const pdfFileInput = document.getElementById('pdfFile');
+        const fileNameDisplay = document.getElementById('fileName');
+        const importStatus = document.getElementById('importStatus');
+        const knowledgeStats = document.getElementById('knowledgeStats');
         
         // 可视化相关元素
         const waveformCanvas = document.getElementById('waveformCanvas');
@@ -324,6 +532,9 @@
         socket.on('connect', function() {
             status.textContent = '已连接到服务器';
             status.className = 'status connected';
+            
+            // 连接后加载知识库统计信息
+            fetchKnowledgeStats();
         });
         
         socket.on('disconnect', function() {
@@ -338,10 +549,20 @@
             }
         });
         
+        // 语音识别结果回调
         socket.on('recognition_result', function(data) {
             addResult(data.text);
         });
         
+        // LLM校对结果回调
+        socket.on('processed_result', function(data) {
+            const llmBox = document.getElementById('llmResultBox');
+            if (llmBox) {
+                llmBox.value += `[${new Date().toLocaleTimeString()}] ${data.text}\n`;
+                llmBox.scrollTop = llmBox.scrollHeight;
+            }
+        });
+
         // 初始化可视化
         function initVisualization() {
             // 清空波形图
@@ -503,7 +724,13 @@
             // 滚动到底部
             results.scrollTop = results.scrollHeight;
         }
-        
+    
+        // 跳转到知识点总结测试页面
+        const testSummarizerBtn = document.getElementById('testSummarizerBtn');
+        testSummarizerBtn.addEventListener('click', function() {
+            window.location.href = '/test_knowledge_summarizer';
+        });
+
         // 开始录音
         async function startRecording() {
             try {
@@ -612,6 +839,129 @@
             
             socket.emit('stop_recording');
         }
+        
+        // 获取知识库统计信息
+        function fetchKnowledgeStats() {
+            fetch('/api/knowledge/knowledge_stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const stats = data.stats;
+                        knowledgeStats.innerHTML = `
+                            <strong>知识库统计：</strong> 
+                            共有 <b>${stats.total_documents || 0}</b> 个文档，
+                            <b>${stats.total_chunks || 0}</b> 个文本块
+                        `;
+                    } else {
+                        knowledgeStats.innerHTML = `<strong>知识库统计：</strong> 获取失败`;
+                    }
+                })
+                .catch(error => {
+                    console.error('获取知识库统计失败:', error);
+                    knowledgeStats.innerHTML = `<strong>知识库统计：</strong> 获取失败`;
+                });
+        }
+        
+        // 处理PDF文件选择
+        pdfFileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const fileName = this.files[0].name;
+                fileNameDisplay.textContent = fileName;
+            } else {
+                fileNameDisplay.textContent = '未选择文件';
+            }
+        });
+        
+        // 处理PDF导入表单提交
+        pdfImportForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('pdfFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showImportStatus('请选择PDF文件', false);
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            const password = document.getElementById('pdfPassword').value;
+            if (password) {
+                formData.append('password', password);
+            }
+            
+            const title = document.getElementById('pdfTitle').value;
+            if (title) {
+                formData.append('title', title);
+            }
+            
+            const author = document.getElementById('pdfAuthor').value;
+            if (author) {
+                formData.append('author', author);
+            }
+            
+            const category = document.getElementById('pdfCategory').value;
+            if (category) {
+                formData.append('category', category);
+            }
+            
+            // 显示导入中状态
+            showImportStatus('正在导入PDF，请稍候...', null);
+            
+            // 发送请求
+            fetch('/api/knowledge/upload_pdf', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showImportStatus(`成功导入 ${data.imported_count} 个文本块`, true);
+                    
+                    // 重新获取知识库统计
+                    fetchKnowledgeStats();
+                    
+                    // 重置表单
+                    pdfImportForm.reset();
+                    fileNameDisplay.textContent = '未选择文件';
+                } else {
+                    showImportStatus(`导入失败: ${data.message}`, false);
+                }
+            })
+            .catch(error => {
+                console.error('PDF导入错误:', error);
+                showImportStatus('导入过程中发生错误，请重试', false);
+            });
+        });
+        
+        // 显示导入状态
+        function showImportStatus(message, success) {
+            importStatus.textContent = message;
+            importStatus.style.display = 'block';
+            
+            if (success === true) {
+                importStatus.className = 'import-status success';
+            } else if (success === false) {
+                importStatus.className = 'import-status error';
+            } else {
+                importStatus.className = 'import-status';
+                importStatus.style.background = '#e9ecef';
+                importStatus.style.color = '#495057';
+                importStatus.style.border = '1px solid #ced4da';
+            }
+            
+            // 5秒后自动隐藏
+            if (success !== null) {
+                setTimeout(() => {
+                    importStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // 跳转到知识库管理页面
+        knowledgePageBtn.addEventListener('click', function() {
+            window.location.href = '/knowledge';
+        });
         
         // 按钮事件监听
         startBtn.addEventListener('click', startRecording);

@@ -5,3 +5,12 @@ env/dev_env_312/pyvenv.cfg
 /server/textCodes/faiss/test_chinese_kb
 /server/__pycache__
 /server/textCodes/faiss/__pycache__
+/.vscode
+/server/knowledge_base
+/server/logs
+/server/routes/__pycache__
+/server/textCodes/__pycache__
+/server/textCodes/models
+test.json
+/venv
+/server/textCodes/test_chinese_kb
