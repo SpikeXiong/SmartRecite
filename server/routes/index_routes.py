@@ -1,11 +1,11 @@
 from flask import Blueprint, render_template, request, jsonify
 from flask_socketio import emit
-import logging
+from logging_utils import setup_logger
 import os
 
 
 # 日志配置
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 # 创建蓝图
 main_bp = Blueprint('main', __name__)
@@ -52,7 +52,7 @@ def summarize_knowledge():
             return jsonify({'success': False, 'message': '输入文本不能为空'})
 
         # 初始化知识点总结器
-        from textCodes.faiss.knowledge_summarizer import KnowledgeSummarizer
+        from text_processing.knowledge_summarizer import KnowledgeSummarizer
         summarizer = KnowledgeSummarizer(knowledge_base=knowledge_base, llm=llm)
 
         # 执行知识点总结

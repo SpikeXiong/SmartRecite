@@ -1,16 +1,76 @@
 # chinese_embedding.py
 import numpy as np
 import logging
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Optional, Dict, Tuple
 import os
 from pathlib import Path
-
+from config import Config
+from logging_utils import setup_logger
 
 paraphrase_multilingual_MiniLM_L12_v2 = "paraphrase-multilingual-MiniLM-L12-v2"
 text2vec_base_chinese = "text2vec-base-chinese"
 text2vec_large_chinese = "text2vec-large-chinese"
 m3e_base = "m3e-base"
 m3e_large = "m3e-large"
+
+# 获取默认模型缓存路径
+def get_default_model_cache_path():
+    """获取默认的模型缓存路径"""
+    # 优先使用配置中的路径
+    if hasattr(Config, 'MODEL_CACHE_PATH'):
+        cache_path = Config.MODEL_CACHE_PATH
+    else:
+        # 否则使用项目根目录下的models文件夹
+        project_root = Path(__file__).parent.parent.parent.parent
+        cache_path = os.path.join(project_root, "models")
+    
+    # 确保目录存在
+    os.makedirs(cache_path, exist_ok=True)
+    return cache_path
+
+# 统一的模型配置
+MODEL_CONFIGS = {
+    paraphrase_multilingual_MiniLM_L12_v2: {
+        "dimension": 384,
+        "description": "多语言轻量级模型，支持中文，性能均衡",
+        "library": "sentence-transformers",
+        "category": "lightweight"
+    },
+    text2vec_base_chinese: {
+        "dimension": 768, 
+        "description": "专门的中文embedding模型，效果优秀",
+        "library": "text2vec",
+        "category": "balanced"
+    },
+    text2vec_large_chinese: {
+        "dimension": 1024,
+        "description": "大型中文embedding模型，效果最佳",
+        "library": "text2vec",
+        "category": "specialized"
+    },
+    m3e_base: {
+        "dimension": 768,
+        "description": "M3E中文embedding模型，针对中文优化",
+        "library": "sentence-transformers",
+        "model_path": "moka-ai/m3e-base",
+        "category": "balanced"
+    },
+    m3e_large: {
+        "dimension": 1024,
+        "description": "M3E大型中文embedding模型",
+        "library": "sentence-transformers", 
+        "model_path": "moka-ai/m3e-large",
+        "category": "high_performance"
+    }
+}
+
+# 按类别组织的模型配置（用于推荐）
+CHINESE_EMBEDDING_MODELS = {
+    "lightweight": paraphrase_multilingual_MiniLM_L12_v2,
+    "balanced": text2vec_base_chinese,
+    "high_performance": m3e_large,
+    "specialized": text2vec_large_chinese
+}
 
 class ChineseEmbeddingFunction:
     """
@@ -40,47 +100,17 @@ class ChineseEmbeddingFunction:
         self.model_name = model_name
         self.device = device
         self.max_seq_length = max_seq_length
-        self.cache_folder = cache_folder or "./models" # 默认缓存路径
-        
+        self.cache_folder = cache_folder or get_default_model_cache_path()
+
         # 设置日志
-        self.logger = logging.getLogger(__name__)
-        
-        # 模型配置映射
-        self.model_configs = {
-            paraphrase_multilingual_MiniLM_L12_v2: {
-                "dimension": 384,
-                "description": "多语言轻量级模型，支持中文，性能均衡",
-                "library": "sentence-transformers"
-            },
-            text2vec_base_chinese: {
-                "dimension": 768, 
-                "description": "专门的中文embedding模型，效果优秀",
-                "library": "text2vec"
-            },
-            text2vec_large_chinese: {
-                "dimension": 1024,
-                "description": "大型中文embedding模型，效果最佳",
-                "library": "text2vec"
-            },
-            m3e_base: {
-                "dimension": 768,
-                "description": "M3E中文embedding模型，针对中文优化",
-                "library": "sentence-transformers",
-                "model_path": "moka-ai/m3e-base"
-            },
-            m3e_large: {
-                "dimension": 1024,
-                "description": "M3E大型中文embedding模型",
-                "library": "sentence-transformers", 
-                "model_path": "moka-ai/m3e-large"
-            }
-        }
+        self.logger = setup_logger(__name__, log_file='chinese_embedding.log')
+        self.logger.info(f"使用模型缓存路径: {self.cache_folder}")
         
         # 验证模型名称
-        if model_name not in self.model_configs:
+        if model_name not in MODEL_CONFIGS:
             raise ValueError(f"不支持的模型: {model_name}")
-        
-        self.config = self.model_configs[model_name]
+
+        self.config = MODEL_CONFIGS[model_name]
         self.dimension = self.config["dimension"]
         
         # 初始化模型
@@ -353,7 +383,6 @@ class ChineseEmbeddingFunction:
         else:
             raise ValueError(f"不支持的输入类型: {type(text)}")
 
-
 # 便捷的工厂函数
 def create_chinese_embedding_function(model_name: str = paraphrase_multilingual_MiniLM_L12_v2, 
                                     **kwargs) -> ChineseEmbeddingFunction:
@@ -369,24 +398,37 @@ def create_chinese_embedding_function(model_name: str = paraphrase_multilingual_
     """
     return ChineseEmbeddingFunction(model_name=model_name, **kwargs)
 
-
-# 预定义的模型配置
-CHINESE_EMBEDDING_MODELS = {
-    "lightweight": paraphrase_multilingual_MiniLM_L12_v2,  # 轻量级，384维
-    "balanced": text2vec_base_chinese,                      # 平衡型，768维  
-    "high_performance": m3e_large,                          # 高性能，1024维
-    "specialized": text2vec_large_chinese                  # 专业型，1024维
-}
-
-
-def get_recommended_model(use_case: str = "balanced") -> str:
+def get_recommended_model(use_case: str = "balanced") -> Tuple[str, int]:
     """
-    根据使用场景推荐模型
+    根据使用场景推荐模型，并返回模型名称和维度
     
     Args:
         use_case: 使用场景 ("lightweight", "balanced", "high_performance", "specialized")
         
     Returns:
-        str: 推荐的模型名称
+        Tuple[str, int]: 返回(模型名称, 维度)元组
     """
-    return CHINESE_EMBEDDING_MODELS.get(use_case, paraphrase_multilingual_MiniLM_L12_v2)
+    # 获取推荐的模型名称
+    model_name = CHINESE_EMBEDDING_MODELS.get(use_case, CHINESE_EMBEDDING_MODELS["lightweight"])
+    
+    # 获取模型维度
+    dimension = MODEL_CONFIGS[model_name]["dimension"]
+    
+    return model_name, dimension
+
+def list_available_models() -> Dict[str, Dict]:
+    """
+    列出所有可用的模型及其详细信息
+    
+    Returns:
+        Dict[str, Dict]: 模型名称到模型详细信息的映射
+    """
+    result = {}
+    for model_name, config in MODEL_CONFIGS.items():
+        result[model_name] = {
+            "dimension": config["dimension"],
+            "description": config["description"],
+            "library": config["library"],
+            "category": config.get("category", "未分类")
+        }
+    return result

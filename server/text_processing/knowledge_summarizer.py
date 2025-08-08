@@ -1,11 +1,11 @@
-import logging
+from logging_utils import setup_logger
 from typing import List, Dict, Tuple
-from textCodes.faiss.faiss_tools import PersistentFAISSKnowledgeBase
-from textCodes.llm_api import QwenLLMApi
+from . import PersistentFAISSKnowledgeBase
+from . llm_api import QwenLLMApi
+
 
 # 日志模块初始化
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = setup_logger(__name__)
 
 class KnowledgeSummarizer:
     """
@@ -37,10 +37,18 @@ class KnowledgeSummarizer:
             Dict: 包含总结的知识点和未提及的知识点。
         """
         # 检索知识库中的相关知识点
-        matched_knowledge = self.knowledge_base.adaptive_search_knowledge(
-            query=input_text, max_k=max_k, debug=False
-        )
+        # matched_knowledge = self.knowledge_base.adaptive_search_knowledge(
+        #     query=input_text, max_k=max_k, debug=False
+        # )
         
+        matched_knowledge = self.knowledge_base.search(
+            query=input_text, k=max_k, threshold=0.2
+        )
+
+        # matched_knowledge = self.knowledge_base.hybrid_search(
+        #     query=input_text, k=max_k
+        # )
+
         knowledge_result = []
         for text, sim, doc_id, title in matched_knowledge:
              knowledge_result.append({"title": title, "content": text, "similarity": sim})

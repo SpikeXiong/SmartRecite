@@ -14,3 +14,11 @@ env/dev_env_312/pyvenv.cfg
 test.json
 /venv
 /server/textCodes/test_chinese_kb
+/logs
+/models
+/server/audio_processing/__pycache__
+/server/text_processing/__pycache__
+/server/text_processing/faiss/__pycache__
+/server/text_processing/file_importer/__pycache__
+/server/text_processing/models
+/tests

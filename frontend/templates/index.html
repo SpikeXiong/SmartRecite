@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时语音识别 + 可视化</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 实时语音识别 + 可视化</h1>
+        
+        <div class="controls">
+            <button id="startBtn" class="start-btn">开始录音</button>
+            <button id="stopBtn" class="stop-btn" disabled>停止录音</button>
+            <button id="knowledgePageBtn" style="background: #007bff; color: white;">知识库管理</button>
+        </div>
+        <!-- 测试知识点总结 -->
+        <div class="controls">
+            <button id="testSummarizerBtn" style="background: #007bff; color: white;">测试知识点总结</button>
+            <button id="checkResultsBtn" style="background: #28a745; color: white;">检查总结结果</button>
+        </div>
+
+        <div id="status" class="status">等待连接...</div>
+        
+        <div id="recordingIndicator" class="recording-indicator">
+            <span class="recording-dot"></span>
+            <span style="margin-left: 10px;">正在录音中...</span>
+        </div>
+        
+        <!-- PDF导入区域 -->
+        <div class="pdf-import-container">
+            <div class="pdf-import-title">
+                <i>📚</i> PDF导入知识库
+            </div>
+            
+            <form id="pdfImportForm" class="pdf-form">
+                <div class="form-group">
+                    <label for="pdfFile">选择PDF文件</label>
+                    <div class="file-input-wrapper">
+                        <div class="file-input-button">选择文件</div>
+                        <input type="file" id="pdfFile" accept=".pdf" required>
+                    </div>
+                    <div id="fileName" class="file-name">未选择文件</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfPassword">PDF密码（如有）</label>
+                    <input type="password" id="pdfPassword" placeholder="留空表示无密码">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfTitle">文档标题</label>
+                    <input type="text" id="pdfTitle" placeholder="输入文档标题">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfAuthor">作者</label>
+                    <input type="text" id="pdfAuthor" placeholder="输入作者名称">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pdfCategory">分类</label>
+                    <input type="text" id="pdfCategory" placeholder="输入文档分类">
+                </div>
+                
+                <button type="submit" class="import-btn">导入知识库</button>
+                
+                <div id="importStatus" class="import-status"></div>
+            </form>
+            
+            <div id="knowledgeStats" class="knowledge-stats">
+                <strong>知识库统计：</strong> 正在加载...
+            </div>
+        </div>
+        
+        <!-- 音频可视化区域 -->
+        <div class="visualization-container">
+            <div class="visualization-title">🎵 实时音频波形</div>
+            <canvas id="waveformCanvas" width="800" height="200"></canvas>
+            
+            <div class="volume-meter">
+                <div class="volume-bar">
+                    <div id="volumeFill" class="volume-fill"></div>
+                    <div id="volumeText" class="volume-text">音量: 0%</div>
+                </div>
+            </div>
+            
+            <div class="audio-info">
+                <div class="info-item">
+                    <strong>状态:</strong> <span id="audioStatus">待机</span>
+                </div>
+                <div class="info-item">
+                    <strong>采样率:</strong> <span id="sampleRate">--</span>
+                </div>
+                <div class="info-item">
+                    <strong>音量:</strong> <span id="volumeLevel">0%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 内容网格布局 -->
+        <div class="content-grid">
+            <!-- 识别结果区域 -->
+            <div class="results-section">
+                <h3>📝 识别结果</h3>
+                <div id="results" class="results">
+                    <p style="text-align: center; color: #666;">暂无识别结果</p>
+                </div>
+                <!-- LLM校对结果区域 -->
+                <div class="results-section" style="margin-top:20px;">
+                    <h3>🤖 LLM校对结果</h3>
+                    <textarea id="llmResultBox" readonly style="width:100%;height:120px;font-size:16px;padding:10px;border-radius:8px;border:1px solid #aaa;resize:vertical;background:#f4f8fb;"></textarea>
+                </div>
+                <div id="summarizedResults" class="results" style="margin-top: 20px;">
+                    <h3>📜 分段总结结果</h3>
+                    <p style="text-align: center; color: #666;">暂无总结结果</p>
+                </div>
+            </div>
+            
+            <!-- 频谱分析区域 -->
+            <div class="results-section">
+                <h3>📊 频谱分析</h3>
+                <canvas id="frequencyCanvas" width="350" height="300" style="border: 1px solid #ddd; border-radius: 8px; background: #000;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

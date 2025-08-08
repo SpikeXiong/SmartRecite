@@ -1,16 +1,17 @@
 import time
 from flask import Blueprint, request, jsonify, current_app
 import os
-import logging
+from logging_utils import setup_logger
+
 from werkzeug.utils import secure_filename
 import tempfile
-from textCodes.faiss.pdf_importer import PDFImporter
+from text_processing import PDFImporter
 
 # 创建蓝图
 knowledge_bp = Blueprint('knowledge', __name__)
 
 # 配置日志
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 # 允许的文件类型
 ALLOWED_EXTENSIONS = {'pdf'}

@@ -1,8 +1,9 @@
 import requests
+from config import Config
 
 # 配置
-QWEN_API_KEY = 'sk-322202431aa946b8996d90f0f87f435d'  # API Key
-QWEN_API_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation'
+QWEN_API_KEY = Config.QWEN_API_KEY # API Key
+QWEN_API_URL = Config.QWEN_API_URL # API URL
 
 class QwenLLMApi:
     """
@@ -39,7 +40,7 @@ class QwenLLMApi:
             'Content-Type': 'application/json'
         }
         data = {
-            "model": "qwen-turbo",
+            "model": Config.QWEN_API_MODEL,
             "input": {
                 "messages": [
                     {"role": "system", "content": "你是一个用于辅助我记忆知识点的AI助手。"},

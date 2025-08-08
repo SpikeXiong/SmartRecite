@@ -5,18 +5,15 @@ import os
 import json
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
-import logging
+from logging_utils import setup_logger
+from config import Config
 
 # 知识库存储路径和索引配置
-storage_path = "./knowledge_base"
+storage_path = Config.KNOWLEDGE_BASE_PATH
 # 索引类型
 index_type = "IndexFlatL2"
 # 向量维度
 dimension = 768
-
-# 日志模块初始化
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 class PersistentFAISSKnowledgeBase:
     """持久化FAISS知识库类"""
@@ -38,7 +35,7 @@ class PersistentFAISSKnowledgeBase:
         self.dimension = dimension
         self.index_type = index_type
         self.storage_path = storage_path
-        self.embedding_function = embedding_function
+        self.embedding_function = embedding_function        
         
         # 创建存储目录
         os.makedirs(storage_path, exist_ok=True)
@@ -62,9 +59,8 @@ class PersistentFAISSKnowledgeBase:
         self.load()
     
     def _setup_logging(self):
-        """设置日志"""
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        """设置日志"""        
+        self.logger = setup_logger()
     
     def _create_index(self):
         """创建FAISS索引"""
@@ -421,8 +417,9 @@ class PersistentFAISSKnowledgeBase:
             self.text_to_id = data['text_to_id']
             self.metadata = data['metadata']
             self.next_id = data['next_id']
-            
+
             self.logger.info(f"成功加载知识库，文档数量: {len(self.id_to_text)}")
+
             return True
             
         except Exception as e:
@@ -454,6 +451,97 @@ class PersistentFAISSKnowledgeBase:
         self.metadata = {}
         self.next_id = 0
         self.logger.info("知识库已清空")
+    
+    def get_all_content(self, page_size: int = 100, page: int = 0, include_text: bool = True) -> Dict:
+        """
+        分页获取知识库中的所有内容
+        
+        Args:
+            page_size: 每页条目数
+            page: 页码（从0开始）
+            include_text: 是否包含完整文本内容
+            
+        Returns:
+            Dict: {
+                'total': 总条目数,
+                'page_count': 总页数,
+                'current_page': 当前页码,
+                'items': [
+                    {
+                        'id': 文档ID,
+                        'text': 文本内容（如果include_text=True）,
+                        'text_preview': 文本预览（始终包含，最多100字符）,
+                        'metadata': 元数据
+                    },
+                    ...
+                ]
+            }
+        """
+        try:
+            # 获取所有文档ID
+            all_ids = list(self.id_to_text.keys())
+            total_items = len(all_ids)
+            
+            if total_items == 0:
+                return {
+                    'total': 0,
+                    'page_count': 0,
+                    'current_page': page,
+                    'items': []
+                }
+            
+            # 计算总页数
+            page_count = (total_items + page_size - 1) // page_size
+            
+            # 验证页码范围
+            if page < 0:
+                page = 0
+            elif page >= page_count:
+                page = page_count - 1
+            
+            # 计算当前页的数据范围
+            start_idx = page * page_size
+            end_idx = min(start_idx + page_size, total_items)
+            
+            # 获取当前页的文档ID
+            page_ids = all_ids[start_idx:end_idx]
+            
+            # 构建结果
+            items = []
+            for doc_id in page_ids:
+                text = self.id_to_text.get(doc_id, "")
+                
+                # 创建文本预览（最多100字符）
+                text_preview = text[:100] + "..." if len(text) > 100 else text
+                
+                item = {
+                    'id': doc_id,
+                    'text_preview': text_preview,
+                    'metadata': self.metadata.get(doc_id, {})
+                }
+                
+                # 如果需要，添加完整文本
+                if include_text:
+                    item['text'] = text
+                    
+                items.append(item)
+            
+            return {
+                'total': total_items,
+                'page_count': page_count,
+                'current_page': page,
+                'items': items
+            }
+            
+        except Exception as e:
+            self.logger.error(f"获取知识库内容失败: {e}")
+            return {
+                'total': 0,
+                'page_count': 0,
+                'current_page': page,
+                'items': [],
+                'error': str(e)
+            }
 
 # 在PersistentFAISSKnowledgeBase类中添加get_documents方法
 def get_documents(self):

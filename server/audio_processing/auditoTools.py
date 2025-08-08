@@ -6,22 +6,19 @@ import queue
 import threading
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-import pyaudio
-import logging
+from logging_utils import setup_logger
+
 
 # FunASR 模型相关
 from funasr import AutoModel
 
-# SocketIO 用于前端通信
-from flask_socketio import SocketIO
+from config import Config
 
 #llm
-import textCodes.llm_api as llm_api  
+from text_processing import QwenLLMApi
 
 # 日志模块初始化
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
+logger = setup_logger(__name__, log_file='audio_tools.log')
 
 class ResultDeduplication:
     """
@@ -97,7 +94,7 @@ class AudioBufferManager:
         self.tail_silence_len = int(self.RATE * tail_silence_len)
         self.silence_threshold = silence_threshold
 
-        self.audio_queue = queue.Queue(maxsize=50)
+        self.audio_queue = queue.Queue(maxsize=500)
         self.audio_buffer = deque(maxlen=self.buffer_size * 3)
         self.buffer_lock = threading.Lock()
 
@@ -217,9 +214,11 @@ class LLMProcessor:
         self.socketio = socketio
         self.recognized_buffer = ""
         self.buffer_lock = threading.Lock()
-        self.QwenLLMApi = llm_api.QwenLLMApi()
+        self.QwenLLMApi = QwenLLMApi()
     
     PROCESSED_RESULT = "processed_result"
+    MAX_LLM_INPUT_LEN = 2048
+
     def _llm_proofread(self, text):
         """
         使用大语言模型对文本进行润色或纠错
@@ -235,30 +234,24 @@ class LLMProcessor:
             logger.error(f"LLM润色失败: {e}")
             return text
     
-    def _llm_process_and_emit(self):
-        with self.buffer_lock:
-            buffer = self.recognized_buffer
-            self.recognized_buffer = ""
-        if not buffer.strip():
-            return
-        sentences = self._llm_proofread(buffer)
-        self.socketio.emit(LLMProcessor.PROCESSED_RESULT, {
-                    'text': sentences,
-                    'timestamp': time.time(),
-                    'confidence': 0.95,
-                    'processing_mode': 'llm'
-                })
-        
-        # for sent in sentences:
-        #     if sent.strip():
-        #         self.socketio.emit(LLMProcessor.PROCESSED_RESULT, {
-        #             'text': sent,
-        #             'timestamp': time.time(),
-        #             'confidence': 0.95,
-        #             'processing_mode': 'llm'
-        #         })
-    
-    MAX_LLM_INPUT_LEN = 2048
+    def _llm_process_and_emit(self, buffer=""):
+            """处理并发送LLM处理结果"""
+            if not buffer:
+                with self.buffer_lock:
+                    buffer = self.recognized_buffer
+                    self.recognized_buffer = ""
+            
+            if not buffer.strip():
+                return
+                
+            sentences = self._llm_proofread(buffer)
+            self.socketio.emit(LLMProcessor.PROCESSED_RESULT, {
+                'text': sentences,
+                'timestamp': time.time(),
+                'confidence': 0.95,
+                'processing_mode': 'llm'
+            })
+   
     def _llm_timer(self):
         while True:
             time.sleep(3)
@@ -287,14 +280,7 @@ class LLMProcessor:
                 'confidence': 0.95,
                 'processing_mode': 'llm'
                 })
-            # for sent in sentences:
-            #     if sent.strip() and self.socketio:
-            #         self.socketio.emit(LLMProcessor.PROCESSED_RESULT, {
-            #             'text': sent,
-            #             'timestamp': time.time(),
-            #             'confidence': 0.95,
-            #             'processing_mode': 'llm'
-            #         })
+            # logger.info(f"LLM处理结果已发送: {sentences}")
 
     def start(self):
         self.llm_thread = threading.Thread(target=self._llm_timer, daemon=True, name="LLM-Processor")
@@ -359,11 +345,11 @@ class OptimizedWebASR:
         self.consecutive_errors = 0
         self.max_consecutive_errors = 3
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ASR")
-        self.recognition_timeout = 10.0
+        self.recognition_timeout = 5.0
         self.last_processed_audio_hash = None
 
         # FunASR模型加载
-        self._init_model("paraformer-zh", "cpu")
+        self._init_model(Config.FunASR, Config.FunASR_DEVICE)
 
         # 启动后台音频处理线程
         self.processing_thread = threading.Thread(
@@ -374,7 +360,7 @@ class OptimizedWebASR:
         self.processing_thread.start()
         logger.info("WebASR初始化完成 - 静音分段模式")
 
-    def _init_model(self, model_name="paraformer-zh", device="cpu"):
+    def _init_model(self, model_name=Config.FunASR, device=Config.FunASR_DEVICE):
         """动态加载或切换ASR模型"""
         try:
             self.model = AutoModel(
@@ -393,13 +379,27 @@ class OptimizedWebASR:
     def add_audio_data(self, audio_data):
         """收到前端音频数据，解码并加入队列"""
         if not self.is_recording:
+            logger.info("录音未启动，忽略音频数据")
             return None
         try:
+            # 检查 Base64 数据长度是否合理
+            if len(audio_data) % 4 != 0:
+                logger.error("音频数据处理错误: Base64 数据长度不正确")
+                return None
+
+            # 解码 Base64 数据
             audio_bytes = base64.b64decode(audio_data)
+
+            # 检查解码后的数据长度是否合理
+            if len(audio_bytes) < 32:
+                logger.error("音频数据处理错误: 解码后的数据长度过短")
+                return None
+
+            # 转换为 numpy 数组
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
             if len(audio_array) == 0:
                 return None
-            logger.debug(f"接收音频数据: {len(audio_array)} 样本")
+            
             self.audio_manager.add_audio_data(audio_array)
             return "数据已接收"
         except Exception as e:
@@ -412,7 +412,7 @@ class OptimizedWebASR:
         silence_start_time = None
         asr_silence_threshold = 2.0   # 识别分段静音阈值（秒）
         llm_silence_threshold = 5.0   # LLM校对静音阈值（秒）
-        max_buffer_duration = 10.0    # 最大缓冲时长（秒），可根据需求调整
+        max_buffer_duration = 5.0    # 最大缓冲时长（秒），可根据需求调整
         asr_triggered = False
         llm_triggered = False
         while True:
