@@ -1,7 +1,7 @@
 
-# Audito - 实时语音识别与知识库系统
+# SmartRecite - 实时语音识别与知识库系统
 
-Audito是一个基于Flask和SocketIO的实时语音识别系统，使用FunASR模型进行中文语音识别，并支持静音分段和智能去重功能。该系统还集成了基于FAISS的向量检索功能，可用于构建知识库和语义搜索应用，支持PDF文档导入和知识总结。
+这是一个基于Flask和SocketIO的实时语音识别系统，使用FunASR模型进行中文语音识别，并支持静音分段和智能去重功能。该系统还集成了基于FAISS的向量检索功能，可用于构建知识库和语义搜索应用，支持PDF文档导入和知识总结。
 
 ## 功能特点
 
@@ -59,16 +59,23 @@ server/
 ```
 
 ## 快速开始
-
+推荐Python版本 3.12 / 3.11
 ### 安装依赖
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/audito.git
-cd audito
+git clone hhttps://github.com/SpikeXiong/SmartRecite.git
 
 # 安装依赖
 pip install -r requirements.txt
+```
+
+### 修改配置
+
+在 `.env` 文件中修改你的配置
+```
+# API密钥
+QWEN_API_KEY=your-api-key-here 
 ```
 
 ### 启动服务器
@@ -158,75 +165,10 @@ PDF导入模块提供以下功能：
    - 基于余弦相似度的文本检索
    - 支持自适应阈值过滤
 
-## 示例：构建知识库
-
-```python
-from server.text_processing.faiss.chinese_embedding import create_chinese_embedding_function
-from server.text_processing.faiss.faiss_tools import PersistentFAISSKnowledgeBase
-
-# 创建embedding函数
-embedding_func = create_chinese_embedding_function()
-
-# 创建知识库
-kb = PersistentFAISSKnowledgeBase(
-    dimension=embedding_func.dimension,
-    embedding_function=embedding_func
-)
-
-# 添加文档
-kb.add_texts(["文档1", "文档2", "文档3"])
-
-# 搜索相似文档
-results = kb.search("查询文本", k=3)
-```
-
-## 示例：导入PDF文档
-
-```python
-from server.text_processing.file_importer.pdf_importer import PDFImporter
-from server.text_processing.faiss.faiss_tools import PersistentFAISSKnowledgeBase
-
-# 初始化知识库
-kb = PersistentFAISSKnowledgeBase()
-
-# 创建PDF导入器
-importer = PDFImporter(kb, chunk_size=500, overlap=50)
-
-# 导入单个PDF
-importer.import_pdf("path/to/document.pdf")
-
-# 批量导入目录下的PDF
-importer.import_pdfs_from_directory("path/to/documents/", recursive=True)
-```
-
-## 示例：知识总结
-
-```python
-from server.text_processing.knowledge_summarizer import KnowledgeSummarizer
-from server.text_processing.llm_api import QwenLLMApi
-
-# 初始化LLM API
-llm = QwenLLMApi()
-
-# 创建知识总结器
-summarizer = KnowledgeSummarizer(knowledge_base=kb, llm=llm)
-
-# 生成知识总结
-summary = summarizer.summarize_knowledge("如何提高工作效率?", max_k=5)
-```
-
-## 性能优化
-
-系统包含多项性能优化措施：
-- 使用线程池进行异步识别
-- 批量处理音频数据
-- 缓冲区大小自适应调整
-- 错误重试与恢复机制
-- 向量检索的高效索引结构
 
 ## 配置参数
 
-主要配置参数位于`config.py`中，可以根据需要调整：
+主要配置参数位于`.env`中，可以根据需要调整：
 
 ```python
 # ASR配置
