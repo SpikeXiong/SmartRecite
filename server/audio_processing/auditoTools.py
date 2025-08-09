@@ -8,10 +8,9 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from logging_utils import setup_logger
 
-
 # FunASR 模型相关
 from funasr import AutoModel
-
+# 全局配置
 from config import Config
 
 #llm
@@ -367,7 +366,7 @@ class OptimizedWebASR:
                 model=model_name,
                 device=device,
                 batch_size=1,
-                disable_log=False
+                disable_log=True
             )
             logger.info(f"ASR模型切换成功: {model_name} on {device}")
             return True
