@@ -106,6 +106,8 @@ if __name__ == '__main__':
     log.setLevel(logging.WARNING)
     
     logger.info("启动WebASR服务器 - 静音分段识别模式")
-    logger.info(f"服务器运行在 {Config.HOST}:{Config.PORT}，调试模式: {Config.DEBUG}")
+
+    logger.info(f"服务器运行在: http://{Config.HOST}:{Config.PORT} ，\n调试模式: {Config.DEBUG}")
+
     socketio.run(app, debug=Config.DEBUG, host=Config.HOST, port=Config.PORT)
     
