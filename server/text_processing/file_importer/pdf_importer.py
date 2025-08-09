@@ -2,7 +2,7 @@ import os
 import re
 import logging
 from typing import List, Dict, Optional, Tuple
-import fitz  # PyMuPDF
+import fitz 
 from tqdm import tqdm
 from logging_utils import setup_logger
 
@@ -64,10 +64,37 @@ class PDFImporter:
             for page_num in tqdm(pages_to_process, desc="提取PDF文本"):
                 if page_num in toc_pages:
                     continue
+                
                 page = doc.load_page(page_num)
-                page_text = page.get_text()
-                if self.filter_toc:
+                # 使用高级文本提取以获取更多细节信息
+                page_dict = page.get_text("dict")
+                filtered_text = ""
+                
+                # 过滤水印内容
+                for block in page_dict["blocks"]:
+                    if "lines" in block:
+                        for line in block["lines"]:
+                            line_text = ""
+                            
+                            for span in line["spans"]:
+                                # 使用非正交旋转检测过滤水印
+                                if "bbox" in span and self._is_non_orthogonal_rotation(span["bbox"]):
+                                    logger.info(f"检测到可能的水印文本: {span.get('text', '')}")
+                                    break
+
+                                line_text += span.get("text", "")
+                            
+                            if line_text.strip():
+                                filtered_text += line_text + "\n"
+                
+                logger.info(f"过滤后水印的文本:{filtered_text}")
+                page_text = filtered_text
+
+                # 过滤目录内容
+                if self.filter_toc:                    
                     page_text = self._filter_toc_content(page_text)
+                    logger.info(f"过滤后目录的文本:{page_text}")
+
                 
                 # 添加页码标记以便后续处理
                 all_text += f"\n[PAGE_BREAK_{page_num+1}]\n{page_text}"
@@ -602,6 +629,39 @@ class PDFImporter:
         ]
         lines = text.split('\n')
         return '\n'.join(line for line in lines if not any(re.search(keyword, line.lower()) for keyword in watermark_keywords))
+    
+    def _is_non_orthogonal_rotation(self, bbox):
+        """
+        判断边界框是否有非正交旋转（非90度或其倍数的旋转）
+        
+        参数:
+            bbox: 包含四个值的元组或列表 (x0, y0, x1, y1)，表示边界框的左上角和右下角坐标
+            
+        返回:
+            bool: True表示有非正交旋转，False表示没有或只有90度的旋转
+        """
+        # 提取边界框坐标
+        x0, y0, x1, y1 = bbox
+        
+        # 计算宽度和高度
+        width = x1 - x0
+        height = y1 - y0
+        
+        # 计算宽高比
+        aspect_ratio = width / height if height != 0 else float('inf')
+        
+        # 判断宽高比是否接近1:1（正方形通常表示45度旋转）
+        # 可以根据需要调整阈值，这里使用0.9-1.1的范围
+        if 0.9 <= aspect_ratio <= 1.1:
+            return True
+        
+        # 如果宽高比不接近1，但也不是典型的水平或垂直文本，可能有轻微旋转
+        # 典型的水平文本宽高比通常大于3，垂直文本宽高比通常小于0.33
+        if 0.33 < aspect_ratio < 3.0 and abs(aspect_ratio - 1.0) > 0.1:
+            return True
+        
+        # 否则认为是正常的水平或垂直文本（正交旋转或无旋转）
+        return False
 
     def _identify_toc_pages(self, doc) -> set:
         """识别PDF中的目录页"""
