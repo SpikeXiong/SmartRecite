@@ -96,14 +96,16 @@ if __name__ == '__main__':
 
     # 注册配置和蓝图
     register_config(app)
-    register_blueprints(app)
-    
+    register_blueprints(app)    
+
     # 使用routes包中定义的函数注册SocketIO事件处理函数
     register_socketio_handlers(socketio, asr_instance)
-    
+
     # 减少werkzeug日志输出
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.WARNING)
-
+    
     logger.info("启动WebASR服务器 - 静音分段识别模式")
+    logger.info(f"服务器运行在 {Config.HOST}:{Config.PORT}，调试模式: {Config.DEBUG}")
     socketio.run(app, debug=Config.DEBUG, host=Config.HOST, port=Config.PORT)
+    
